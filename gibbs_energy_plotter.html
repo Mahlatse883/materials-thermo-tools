@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gibbs Free Energy Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f3f4f6;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    h2 {
+      text-align: center;
+      color: #1e3a8a;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.5rem;
+      margin-top: 0.25rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: #1e3a8a;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    canvas {
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>Gibbs Free Energy vs Temperature</h2>
+
+  <label>Material Preset:</label>
+  <select id="preset" onchange="applyPreset()">
+    <option value="">-- Select Reaction --</option>
+    <option value="fe_feo">Fe → FeO</option>
+    <option value="c_co2">C → CO₂</option>
+    <option value="co_co2">CO → CO₂</option>
+    <option value="al_al2o3">Al → Al₂O₃</option>
+    <option value="zn_zno">Zn → ZnO</option>
+  </select>
+
+  <label>ΔH° (Standard Enthalpy Change) [kJ/mol]:</label>
+  <input type="number" id="deltaH" step="0.1" value="-272" />
+
+  <label>ΔS° (Standard Entropy Change) [J/mol·K]:</label>
+  <input type="number" id="deltaS" step="0.1" value="-90" />
+
+  <label>Temperature Range (K):</label>
+  <input type="number" id="Tmin" step="1" value="300" placeholder="Min T" />
+  <input type="number" id="Tmax" step="1" value="2000" placeholder="Max T" />
+
+  <button onclick="plotGibbs()">Plot ΔG and log₁₀(K) vs T</button>
+  <canvas id="gibbsChart"></canvas>
+
+  <script>
+    const R = 8.314; // J/mol·K
+    const presets = {
+      fe_feo: { deltaH: -272000, deltaS: 65 },
+      c_co2: { deltaH: -394100, deltaS: 0.84 },
+      co_co2: { deltaH: -283000, deltaS: 87.4 },
+      al_al2o3: { deltaH: -1675000, deltaS: 567.6 },
+      zn_zno: { deltaH: -348000, deltaS: 96.2 }
+    };
+
+    function applyPreset() {
+      const selected = document.getElementById("preset").value;
+      if (presets[selected]) {
+        const { deltaH, deltaS } = presets[selected];
+        document.getElementById("deltaH").value = (deltaH / 1000).toFixed(1);
+        document.getElementById("deltaS").value = deltaS;
+      }
+    }
+
+    function plotGibbs() {
+      const deltaH = parseFloat(document.getElementById("deltaH").value) * 1000; // J
+      const deltaS = parseFloat(document.getElementById("deltaS").value); // J/K
+      const Tmin = parseInt(document.getElementById("Tmin").value);
+      const Tmax = parseInt(document.getElementById("Tmax").value);
+
+      const T = [], G = [], logK = [];
+
+      for (let t = Tmin; t <= Tmax; t += 10) {
+        const dG = deltaH - t * deltaS;
+        const k = Math.exp(-dG / (R * t));
+        T.push(t);
+        G.push(dG / 1000); // kJ/mol
+        logK.push(Math.log10(k));
+      }
+
+      const ctx = document.getElementById("gibbsChart").getContext("2d");
+      if (window.gibbsPlot) window.gibbsPlot.destroy();
+
+      window.gibbsPlot = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: T,
+          datasets: [
+            {
+              label: 'ΔG (kJ/mol)',
+              data: G,
+              borderColor: '#1e3a8a',
+              yAxisID: 'y1',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: 0,
+              tension: 0.1
+            },
+            {
+              label: 'log₁₀(K)',
+              data: logK,
+              borderColor: '#e11d48',
+              yAxisID: 'y2',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: 0,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          stacked: false,
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Temperature (K)'
+              }
+            },
+            y1: {
+              type: 'linear',
+              position: 'left',
+              title: {
+                display: true,
+                text: 'ΔG (kJ/mol)'
+              }
+            },
+            y2: {
+              type: 'linear',
+              position: 'right',
+              title: {
+                display: true,
+                text: 'log₁₀(K)'
+              },
+              grid: {
+                drawOnChartArea: false
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
